@@ -1,12 +1,11 @@
 pipeline {
-    agent { label 'gcp' } 
+    agent { label 'gcp' }
 
     environment {
-        VENV = "${WORKSPACE}/venv"  
+        VENV = "${WORKSPACE}/venv"
     }
 
     stages {
-
         stage('Checkout') {
             steps {
                 git branch: 'main', url: 'https://github.com/bagorbenko/fast-api-jenkins-test.git'
@@ -18,7 +17,9 @@ pipeline {
                 sh '''
                 python3 -m venv $VENV
                 . $VENV/bin/activate
+                python --version
                 pip install -r requirements.txt
+                pip freeze
                 '''
             }
         }
