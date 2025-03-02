@@ -1,23 +1,25 @@
 pipeline {
-    agent { label 'gcp' }
+    agent { label 'gcp' } // имя агента, который ты настроил (gcp-agent)
 
     environment {
-        VENV = "${WORKSPACE}/venv"
+        DEPLOY_DIR = "/var/lib/jenkins/deploy"
     }
 
     stages {
         stage('Checkout') {
             steps {
+                cleanWs()
                 git branch: 'main', url: 'https://github.com/bagorbenko/fast-api-jenkins-test.git'
             }
         }
 
-        stage('Setup Python') {
+        stage('Setup Python Environment') {
             steps {
                 sh '''
-                python3 -m venv $VENV
-                $VENV/bin/python --version
-                $VENV/bin/pip install -r requirements.txt
+                    python3 -m venv venv
+                    . venv/bin/activate
+                    pip install -r requirements.txt
+                    pip install pytest pytest-html
                 '''
             }
         }
@@ -25,26 +27,65 @@ pipeline {
         stage('Run Tests') {
             steps {
                 sh '''
-                PYTHONPATH=$WORKSPACE $VENV/bin/python -m pytest --junitxml=report.xml
+                    . venv/bin/activate
+                    mkdir -p reports
+                    PYTHONPATH=. pytest --junitxml=reports/report.xml --html=reports/report.html --self-contained-html || true
                 '''
+            }
+            post {
+                always {
+                    junit 'reports/report.xml'
+                    archiveArtifacts artifacts: 'reports/**', allowEmptyArchive: true
+                }
             }
         }
 
-        stage('Publish Test Report') {
+        stage('Deploy') {
             steps {
-                publishHTML([allowMissing: true,
-                             alwaysLinkToLastBuild: true,
-                             keepAll: true,
-                             reportDir: '.',
-                             reportFiles: 'report.xml',
-                             reportName: 'Test Report'])
+                sh '''
+                    echo "Deploy step - ничего не делаем, просто для примера"
+                '''
             }
         }
     }
 
     post {
-        always {
-            archiveArtifacts artifacts: 'report.xml', allowEmptyArchive: true
+        success {
+            sh """
+                curl -X POST "https://api.telegram.org/bot7511855444:AAEDvkMdddaKa4B2AArcudj7IEzQUQF6Lm8/sendMessage" \\
+                    -H "Content-Type: application/json" \\
+                    -d '{
+                        "chat_id": "269199712",
+                        "text": "✅ Обновление билда: УДАЧНО\\nПроект: ${env.JOB_NAME}\\nБилд номер: ${env.BUILD_NUMBER}\\nСсылка: ${env.BUILD_URL}",
+                        "disable_notification": false
+                    }'
+
+                if [ -f "reports/report.html" ]; then
+                    curl -X POST "https://api.telegram.org/bot7511855444:AAEDvkMdddaKa4B2AArcudj7IEzQUQF6Lm8/sendDocument" \\
+                        -F "chat_id=269199712" \\
+                        -F "document=@reports/report.html" \\
+                        -F "caption=Тестовый отчет для билда ${env.BUILD_NUMBER} - УДАЧНО"
+                fi
+            """
+        }
+
+        failure {
+            sh """
+                curl -X POST "https://api.telegram.org/bot7511855444:AAEDvkMdddaKa4B2AArcudj7IEzQUQF6Lm8/sendMessage" \\
+                    -H "Content-Type: application/json" \\
+                    -d '{
+                        "chat_id": "269199712",
+                        "text": "❌ Обновление билда: ОШИБКА\\nПроект: ${env.JOB_NAME}\\nБилд номер: ${env.BUILD_NUMBER}\\nСсылка: ${env.BUILD_URL}",
+                        "disable_notification": false
+                    }'
+
+                if [ -f "reports/report.html" ]; then
+                    curl -X POST "https://api.telegram.org/bot7511855444:AAEDvkMdddaKa4B2AArcudj7IEzQUQF6Lm8/sendDocument" \\
+                        -F "chat_id=269199712" \\
+                        -F "document=@reports/report.html" \\
+                        -F "caption=Тестовый отчет для билда ${env.BUILD_NUMBER} - ОШИБКА"
+                fi
+            """
         }
     }
 }
