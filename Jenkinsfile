@@ -9,7 +9,7 @@ pipeline {
 
         stage('Checkout') {
             steps {
-                git 'git@github.com:bagorbenko/fast-api-jenkins-test.git'
+                git branch: 'main', url: 'https://github.com/bagorbenko/fast-api-jenkins-test.git'
             }
         }
 
