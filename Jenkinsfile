@@ -16,10 +16,8 @@ pipeline {
             steps {
                 sh '''
                 python3 -m venv $VENV
-                . $VENV/bin/activate
-                python --version
-                pip install -r requirements.txt
-                pip freeze
+                $VENV/bin/python --version
+                $VENV/bin/pip install -r requirements.txt
                 '''
             }
         }
@@ -27,8 +25,7 @@ pipeline {
         stage('Run Tests') {
             steps {
                 sh '''
-                . $VENV/bin/activate
-                PYTHONPATH=$WORKSPACE pytest --junitxml=report.xml
+                PYTHONPATH=$WORKSPACE $VENV/bin/python -m pytest --junitxml=report.xml
                 '''
             }
         }
