@@ -1,5 +1,5 @@
 pipeline {
-    agent { label 'gcp' } // имя агента, который ты настроил (gcp-agent)
+    agent { label 'gcp' }
 
     environment {
         DEPLOY_DIR = "/var/lib/jenkins/deploy"
